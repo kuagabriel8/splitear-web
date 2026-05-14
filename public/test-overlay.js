@@ -10,7 +10,7 @@ const rightThumbnailUrl = 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
 const leftThumbnailUrl = 'https://img.youtube.com/vi/oHg5SJYRHA0/hqdefault.jpg';
 
 // Estimated overlay coordinates based on the "Right ear" and "Left ear" text positions.
-const rightOverlay = { x: 17, y: 39, width: 120 };
+const rightOverlay = { x: 25, y: 39, width: 120 };
 const leftOverlay = { x: 194, y: 36, width: 120 };
 
 const html = `<!DOCTYPE html>
