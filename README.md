@@ -1,9 +1,6 @@
 # Split Ear YouTube Player
 
-A web app that lets users enter two YouTube links and play them synchronized. For stereo separation, use headphones and either:
-
-1. Position yourself so one speaker is near each ear, or
-2. Use your device's audio balance/mono controls to route sound appropriately
+A web app that lets users enter two YouTube links and play them synchronized. For stereo separation, use headphones or left right speakers:
 
 ## Setup (Local Development)
 
