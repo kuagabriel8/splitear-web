@@ -9,13 +9,8 @@ const previewRightThumb = document.querySelector('#previewRightThumb');
 const previewLeftOverlay = document.querySelector('#previewLeftOverlay');
 const previewRightOverlay = document.querySelector('#previewRightOverlay');
 
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let leftPlayer = null;
 let rightPlayer = null;
-let leftSource = null;
-let rightSource = null;
-let leftPanner = null;
-let rightPanner = null;
 let isPlaying = false;
 let previousLeftUrl = null;
 let previousRightUrl = null;
@@ -95,27 +90,21 @@ function restartAudio() {
 }
 
 function cleanupTracks() {
-  const cleanup = (player, source, panner) => {
+  const cleanup = (player) => {
     if (!player) return;
     try {
       player.pauseVideo();
       player.seekTo(0);
-      source?.disconnect();
-      panner?.disconnect();
     } catch (error) {
       console.warn('Player cleanup error:', error);
     }
   };
 
-  cleanup(leftPlayer, leftSource, leftPanner);
-  cleanup(rightPlayer, rightSource, rightPanner);
+  cleanup(leftPlayer);
+  cleanup(rightPlayer);
 
   leftPlayer = null;
   rightPlayer = null;
-  leftSource = null;
-  rightSource = null;
-  leftPanner = null;
-  rightPanner = null;
   isPlaying = false;
   playButton.textContent = 'Play';
   playButton.disabled = true;
@@ -131,7 +120,7 @@ function clearTracks() {
   setStatus('Links cleared. Enter two new YouTube links.', 'info');
 }
 
-async function createTrack(videoId, panValue) {
+async function createTrack(videoId) {
   return new Promise((resolve, reject) => {
     const playerDiv = document.createElement('div');
     playerDiv.style.display = 'none';
@@ -168,42 +157,9 @@ async function createTrack(videoId, panValue) {
     };
 
     player.on('ready', () => {
-      try {
-        // Get the video element from the player
-        const iframe = playerDiv.querySelector('iframe');
-        if (!iframe) {
-          isResolved = true;
-          cleanup();
-          reject(new Error('Could not find YouTube iframe.'));
-          return;
-        }
-
-        const videoElement = iframe.contentWindow.document.querySelector('video');
-        if (!videoElement) {
-          isResolved = true;
-          cleanup();
-          reject(new Error('Could not find YouTube video element.'));
-          return;
-        }
-
-        // Create Web Audio source from the video element
-        const source = audioContext.createMediaElementSource(videoElement);
-        const panner = audioContext.createStereoPanner();
-        panner.pan.value = panValue;
-        source.connect(panner).connect(audioContext.destination);
-
-        // Mute the video element since we're using Web Audio
-        videoElement.muted = true;
-        videoElement.volume = 0;
-
-        isResolved = true;
-        clearTimeout(timeout);
-        resolve({ player, source, panner });
-      } catch (error) {
-        isResolved = true;
-        cleanup();
-        reject(new Error('Failed to setup Web Audio: ' + error.message));
-      }
+      isResolved = true;
+      clearTimeout(timeout);
+      resolve(player);
     });
 
     player.on('error', (error) => {
@@ -255,18 +211,13 @@ async function loadTracks() {
       throw new Error('Invalid YouTube URLs. Please check the links.');
     }
 
-    const leftPromise = createTrack(leftVideoId, -1);
-    const rightPromise = createTrack(rightVideoId, 1);
+    const leftPromise = createTrack(leftVideoId);
+    const rightPromise = createTrack(rightVideoId);
 
     const [leftTrack, rightTrack] = await Promise.all([leftPromise, rightPromise]);
 
-    leftPlayer = leftTrack.player;
-    leftSource = leftTrack.source;
-    leftPanner = leftTrack.panner;
-
-    rightPlayer = rightTrack.player;
-    rightSource = rightTrack.source;
-    rightPanner = rightTrack.panner;
+    leftPlayer = leftTrack;
+    rightPlayer = rightTrack;
 
     // Store the loaded URLs for future comparison
     previousLeftUrl = leftUrl;
@@ -289,17 +240,13 @@ async function togglePlay() {
     return;
   }
 
-  if (audioContext.state === 'suspended') {
-    await audioContext.resume();
-  }
-
   if (!isPlaying) {
     await Promise.all([
       leftPlayer.playVideo(),
       rightPlayer.playVideo()
     ]);
     playButton.textContent = 'Pause';
-    setStatus('Playing in left and right ears.', 'success');
+    setStatus('Playing synchronized videos. Use headphones for stereo effect.', 'success');
     isPlaying = true;
   } else {
     leftPlayer.pauseVideo();

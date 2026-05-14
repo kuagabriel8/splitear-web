@@ -1,6 +1,9 @@
 # Split Ear YouTube Player
 
-A web app that lets users enter two YouTube links and play one audio stream in the left ear and the other in the right ear using the YouTube Player API and Web Audio API.
+A web app that lets users enter two YouTube links and play them synchronized. For stereo separation, use headphones and either:
+
+1. Position yourself so one speaker is near each ear, or
+2. Use your device's audio balance/mono controls to route sound appropriately
 
 ## Setup (Local Development)
 
@@ -21,12 +24,13 @@ A web app that lets users enter two YouTube links and play one audio stream in t
 ## How it works
 
 - The frontend accepts two YouTube URLs and extracts video IDs
-- Uses the YouTube IFrame Player API to load videos (muted)
-- The browser uses the Web Audio API to pan one track fully left and the other fully right
-- No server-side processing required - works entirely in the browser
+- Uses the YouTube IFrame Player API to load videos
+- Videos play in sync using YouTube's API
+- Stereo separation achieved through physical positioning or device audio controls
 
 ## Notes
 
-- Use earphones for the left/right split effect
+- Use headphones for best results
+- Videos play simultaneously - separation depends on your audio setup
 - This app works on any static hosting platform (Vercel, Netlify, GitHub Pages, etc.)
 - YouTube videos must allow embedding for this to work
