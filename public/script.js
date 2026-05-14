@@ -267,10 +267,12 @@ async function togglePlay() {
   }
 
   if (!isPlaying) {
-    await Promise.all([
-      leftPlayer.playVideo(),
-      rightPlayer.playVideo()
-    ]);
+    leftPlayer.playVideo();
+    rightPlayer.playVideo();
+    leftPlayer.unMute();
+    rightPlayer.unMute();
+    leftPlayer.setVolume(100);
+    rightPlayer.setVolume(100);
     playButton.textContent = 'Pause';
     setStatus('Playing synchronized videos. Use headphones for stereo effect.', 'success');
     isPlaying = true;
