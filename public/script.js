@@ -82,7 +82,7 @@ function restartAudio() {
     }
     isPlaying = false;
     playButton.textContent = 'Play';
-    setStatus('Audio restarted. Click Play to begin.', 'success');
+    setStatus('Audio restarted.', 'success');
   } catch (error) {
     console.error('Error restarting audio:', error);
     setStatus('Error restarting audio.', 'error');
