@@ -10,8 +10,8 @@ const previewLeftOverlay = document.querySelector('#previewLeftOverlay');
 const previewRightOverlay = document.querySelector('#previewRightOverlay');
 
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-let leftAudio = null;
-let rightAudio = null;
+let leftPlayer = null;
+let rightPlayer = null;
 let leftSource = null;
 let rightSource = null;
 let leftPanner = null;
@@ -79,11 +79,11 @@ function isSameLinks(leftUrl, rightUrl) {
 
 function restartAudio() {
   try {
-    if (leftAudio) {
-      leftAudio.currentTime = 0;
+    if (leftPlayer) {
+      leftPlayer.seekTo(0);
     }
-    if (rightAudio) {
-      rightAudio.currentTime = 0;
+    if (rightPlayer) {
+      rightPlayer.seekTo(0);
     }
     isPlaying = false;
     playButton.textContent = 'Play';
@@ -95,25 +95,23 @@ function restartAudio() {
 }
 
 function cleanupTracks() {
-  const cleanup = (audio, source, panner) => {
-    if (!audio) return;
+  const cleanup = (player, source, panner) => {
+    if (!player) return;
     try {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.src = '';
-      audio.load();
+      player.pauseVideo();
+      player.seekTo(0);
       source?.disconnect();
       panner?.disconnect();
     } catch (error) {
-      console.warn('Audio cleanup error:', error);
+      console.warn('Player cleanup error:', error);
     }
   };
 
-  cleanup(leftAudio, leftSource, leftPanner);
-  cleanup(rightAudio, rightSource, rightPanner);
+  cleanup(leftPlayer, leftSource, leftPanner);
+  cleanup(rightPlayer, rightSource, rightPanner);
 
-  leftAudio = null;
-  rightAudio = null;
+  leftPlayer = null;
+  rightPlayer = null;
   leftSource = null;
   rightSource = null;
   leftPanner = null;
@@ -133,73 +131,88 @@ function clearTracks() {
   setStatus('Links cleared. Enter two new YouTube links.', 'info');
 }
 
-async function createTrack(url, panValue) {
-  const audio = document.createElement('audio');
-  audio.crossOrigin = 'anonymous';
-  audio.preload = 'auto';
-  audio.loop = true;
-  audio.muted = true;
-  audio.volume = 0;
-  audio.src = url;
-
+async function createTrack(videoId, panValue) {
   return new Promise((resolve, reject) => {
+    const playerDiv = document.createElement('div');
+    playerDiv.style.display = 'none';
+    document.body.appendChild(playerDiv);
+
+    const player = YouTubePlayer(playerDiv, {
+      videoId: videoId,
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        disablekb: 1,
+        fs: 0,
+        iv_load_policy: 3,
+        modestbranding: 1,
+        playsinline: 1,
+        rel: 0,
+        showinfo: 0,
+      },
+    });
+
     let isResolved = false;
     const timeout = setTimeout(() => {
       if (!isResolved) {
         isResolved = true;
         cleanup();
-        reject(new Error('Audio load timed out.'));
+        reject(new Error('YouTube player load timed out.'));
       }
-    }, 600000);
+    }, 30000);
 
-    const onCanPlay = async () => {
-      if (isResolved) return;
-      cleanup();
+    const cleanup = () => {
+      clearTimeout(timeout);
+      player.destroy();
+      playerDiv.remove();
+    };
 
+    player.on('ready', () => {
       try {
-        await audio.play();
-        audio.pause();
-        isResolved = true;
-        
-        audio.muted = false;
-        audio.volume = 1;
+        // Get the video element from the player
+        const iframe = playerDiv.querySelector('iframe');
+        if (!iframe) {
+          isResolved = true;
+          cleanup();
+          reject(new Error('Could not find YouTube iframe.'));
+          return;
+        }
 
-        const source = audioContext.createMediaElementSource(audio);
+        const videoElement = iframe.contentWindow.document.querySelector('video');
+        if (!videoElement) {
+          isResolved = true;
+          cleanup();
+          reject(new Error('Could not find YouTube video element.'));
+          return;
+        }
+
+        // Create Web Audio source from the video element
+        const source = audioContext.createMediaElementSource(videoElement);
         const panner = audioContext.createStereoPanner();
         panner.pan.value = panValue;
         source.connect(panner).connect(audioContext.destination);
 
-        resolve({ audio, source, panner });
-      } catch (playError) {
+        // Mute the video element since we're using Web Audio
+        videoElement.muted = true;
+        videoElement.volume = 0;
+
         isResolved = true;
-        reject(new Error('Audio is not playable yet.'));
+        clearTimeout(timeout);
+        resolve({ player, source, panner });
+      } catch (error) {
+        isResolved = true;
+        cleanup();
+        reject(new Error('Failed to setup Web Audio: ' + error.message));
       }
-    };
+    });
 
-    const onError = () => {
-      if (isResolved) return;
-      isResolved = true;
-      cleanup();
-      const code = audio.error && audio.error.code;
-      reject(new Error(`Failed to load audio. code=${code || 'unknown'}`));
-    };
-
-    const cleanup = () => {
-      clearTimeout(timeout);
-      audio.removeEventListener('canplay', onCanPlay);
-      audio.removeEventListener('error', onError);
-    };
-
-    audio.addEventListener('canplay', onCanPlay, { once: true });
-    audio.addEventListener('error', onError, { once: true });
-    
-    try {
-      audio.load();
-    } catch (err) {
-      isResolved = true;
-      cleanup();
-      reject(new Error(`Audio load error: ${err.message}`));
-    }
+    player.on('error', (error) => {
+      if (!isResolved) {
+        isResolved = true;
+        cleanup();
+        reject(new Error('YouTube player error: ' + error.data));
+      }
+    });
   });
 }
 
@@ -220,13 +233,13 @@ async function loadTracks() {
   updatePreviewThumbnails();
 
   // If same links were already loaded for left and right tracks, just restart audio instead of reloading
-  if (isSameLinks(leftUrl, rightUrl) && leftAudio && rightAudio) {
+  if (isSameLinks(leftUrl, rightUrl) && leftPlayer && rightPlayer) {
     restartAudio();
     return;
   }
 
   cleanupTracks();
-  
+
   // Buffer time to allow browser to release resources
   await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -235,16 +248,23 @@ async function loadTracks() {
   playButton.disabled = true;
 
   try {
-    const leftPromise = createTrack(`/api/audio?url=${encodeURIComponent(leftUrl)}`, -1);
-    const rightPromise = createTrack(`/api/audio?url=${encodeURIComponent(rightUrl)}`, 1);
+    const leftVideoId = extractYouTubeId(leftUrl);
+    const rightVideoId = extractYouTubeId(rightUrl);
+
+    if (!leftVideoId || !rightVideoId) {
+      throw new Error('Invalid YouTube URLs. Please check the links.');
+    }
+
+    const leftPromise = createTrack(leftVideoId, -1);
+    const rightPromise = createTrack(rightVideoId, 1);
 
     const [leftTrack, rightTrack] = await Promise.all([leftPromise, rightPromise]);
 
-    leftAudio = leftTrack.audio;
+    leftPlayer = leftTrack.player;
     leftSource = leftTrack.source;
     leftPanner = leftTrack.panner;
 
-    rightAudio = rightTrack.audio;
+    rightPlayer = rightTrack.player;
     rightSource = rightTrack.source;
     rightPanner = rightTrack.panner;
 
@@ -264,7 +284,7 @@ async function loadTracks() {
 }
 
 async function togglePlay() {
-  if (!leftAudio || !rightAudio) {
+  if (!leftPlayer || !rightPlayer) {
     setStatus('No tracks are loaded yet.', 'error');
     return;
   }
@@ -274,13 +294,16 @@ async function togglePlay() {
   }
 
   if (!isPlaying) {
-    await Promise.all([leftAudio.play(), rightAudio.play()]);
+    await Promise.all([
+      leftPlayer.playVideo(),
+      rightPlayer.playVideo()
+    ]);
     playButton.textContent = 'Pause';
     setStatus('Playing in left and right ears.', 'success');
     isPlaying = true;
   } else {
-    leftAudio.pause();
-    rightAudio.pause();
+    leftPlayer.pauseVideo();
+    rightPlayer.pauseVideo();
     playButton.textContent = 'Play';
     setStatus('Paused.', 'info');
     isPlaying = false;
