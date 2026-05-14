@@ -120,26 +120,32 @@ function clearTracks() {
   setStatus('Links cleared. Enter two new YouTube links.', 'info');
 }
 
+let youTubeApiReady = false;
+const youTubeApiReadyPromise = new Promise((resolve) => {
+  window.onYouTubeIframeAPIReady = () => {
+    youTubeApiReady = true;
+    resolve();
+  };
+});
+
+async function ensureYouTubeApiReady() {
+  if (window.YT && window.YT.Player) {
+    return;
+  }
+
+  await youTubeApiReadyPromise;
+}
+
 async function createTrack(videoId) {
+  await ensureYouTubeApiReady();
+
   return new Promise((resolve, reject) => {
     const playerDiv = document.createElement('div');
-    playerDiv.style.display = 'none';
+    playerDiv.style.position = 'absolute';
+    playerDiv.style.left = '-9999px';
+    playerDiv.style.width = '0';
+    playerDiv.style.height = '0';
     document.body.appendChild(playerDiv);
-
-    const player = YouTubePlayer(playerDiv, {
-      videoId: videoId,
-      playerVars: {
-        autoplay: 0,
-        controls: 0,
-        disablekb: 1,
-        fs: 0,
-        iv_load_policy: 3,
-        modestbranding: 1,
-        playsinline: 1,
-        rel: 0,
-        showinfo: 0,
-      },
-    });
 
     let isResolved = false;
     const timeout = setTimeout(() => {
@@ -152,22 +158,42 @@ async function createTrack(videoId) {
 
     const cleanup = () => {
       clearTimeout(timeout);
-      player.destroy();
+      try {
+        player.destroy();
+      } catch (error) {
+        /* ignored */
+      }
       playerDiv.remove();
     };
 
-    player.on('ready', () => {
-      isResolved = true;
-      clearTimeout(timeout);
-      resolve(player);
-    });
-
-    player.on('error', (error) => {
-      if (!isResolved) {
-        isResolved = true;
-        cleanup();
-        reject(new Error('YouTube player error: ' + error.data));
-      }
+    const player = new YT.Player(playerDiv, {
+      videoId: videoId,
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        disablekb: 1,
+        fs: 0,
+        iv_load_policy: 3,
+        modestbranding: 1,
+        playsinline: 1,
+        rel: 0,
+        showinfo: 0,
+        mute: 1,
+      },
+      events: {
+        onReady: (event) => {
+          if (isResolved) return;
+          isResolved = true;
+          clearTimeout(timeout);
+          resolve(event.target);
+        },
+        onError: (event) => {
+          if (isResolved) return;
+          isResolved = true;
+          cleanup();
+          reject(new Error('YouTube player error: ' + event.data));
+        },
+      },
     });
   });
 }
