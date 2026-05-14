@@ -1,0 +1,170 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, sans-serif;
+  background: #0b1220;
+  color: #f8fafc;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.container {
+  width: min(640px, calc(100% - 32px));
+  padding: 28px 32px;
+  min-height: 700px;
+  border-radius: 24px;
+  background: rgba(42, 42, 88, 0.92);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.preview-shell {
+  width: 307px;
+  height: 164px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+  pointer-events: none;
+}
+
+.preview-frame {
+  position: relative;
+  width: 307px;
+  height: 164px;
+  background: url('images/leftearrightear.jpg') no-repeat top left;
+  background-size: 307px 164px;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65);
+}
+
+.preview-overlay {
+  position: absolute;
+  width: 110px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.15);
+  display: none;
+}
+
+.preview-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.preview-overlay--right {
+  left: 17px;
+  top: 39px;
+}
+
+.preview-overlay--left {
+  left: 194px;
+  top: 36px;
+}
+
+h1 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 24px;
+  line-height: 1.6;
+  color: #a7b3ff;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+input[type="url"] {
+  width: 90%;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 1rem;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+button {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 20px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #38bdf8);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  gap: 12px;
+  z-index: 9999;
+}
+
+.toast {
+  min-width: 280px;
+  max-width: 360px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.32);
+  color: #f8fafc;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast--info {
+  background: linear-gradient(135deg, #475569, #0f172a);
+}
+
+.toast--success {
+  background: linear-gradient(135deg, #10b981, #22c55e);
+}
+
+.toast--error {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

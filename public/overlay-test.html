@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Left/Right Ear Overlay Test</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+    }
+    .frame {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 307px;
+      height: 164px;
+      background: url('images/leftearrightear.jpg') no-repeat top left;
+      background-size: 307px 164px;
+      border: 1px solid #555;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.7);
+    }
+    .overlay {
+      position: absolute;
+      width: 120px;
+      aspect-ratio: 16 / 9;
+      border: none;
+      box-shadow: 0 0 18px rgba(0,0,0,0.35);
+      background: transparent;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+    .overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .top-text {
+      padding: 24px;
+      text-align: center;
+      max-width: 640px;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-text">
+    <h1>Overlay Position Test</h1>
+    <p>This page uses the original image as a background and places two thumbnail overlays in the same positions.</p>
+  </div>
+  <div class="frame">
+    <div class="overlay" style="left: 17px; top: 39px; width: 120px;">
+      <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg" alt="Right thumbnail" />
+    </div>
+    <div class="overlay" style="left: 194px; top: 36px; width: 120px;">
+      <img src="https://img.youtube.com/vi/oHg5SJYRHA0/hqdefault.jpg" alt="Left thumbnail" />
+    </div>
+  </div>
+</body>
+</html>

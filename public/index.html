@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Split Ear YouTube Player</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Split Ear YouTube Player</h1>
+    <p>Use headphones and enter two YouTube links</p>
+
+    <div class="preview-shell">
+      <div class="preview-frame" aria-label="Visual thumbnail preview">
+        <div class="preview-overlay preview-overlay--right" id="previewRightOverlay">
+          <img id="previewRightThumb" alt="Right ear thumbnail" src="" />
+        </div>
+        <div class="preview-overlay preview-overlay--left" id="previewLeftOverlay">
+          <img id="previewLeftThumb" alt="Left ear thumbnail" src="" />
+        </div>
+      </div>
+    </div>
+
+    <label for="leftUrl">Left ear:</label>
+    <input id="leftUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+
+    <label for="rightUrl">Right ear:</label>
+    <input id="rightUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+
+    <div class="buttons">
+      <button id="loadButton">Load Tracks</button>
+      <button id="playButton" disabled>Play</button>
+      <button id="clearButton" type="button">Clear</button>
+    </div>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+  
+
+  
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
