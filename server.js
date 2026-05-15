@@ -54,7 +54,7 @@ app.get('/api/audio', (req, res) => {
     '-f', 'bestaudio/best',
     '--no-playlist',
     '--no-warnings',
-    '--extractor-args', 'youtube:player_client=tv_simply,web_safari,android',
+    '--extractor-args', 'youtube:player_client=web,android,ios',
     ...(fs.existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : []),
     '-o', '-',
     url,
