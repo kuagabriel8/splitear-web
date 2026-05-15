@@ -1,5 +1,4 @@
-const { spawn } = require('child_process');
-const { YOUTUBE_DL_PATH } = require('yt-dlp-exec/src/constants');
+const ytdl = require('@distube/ytdl-core');
 
 function isYouTubeUrl(value) {
   try {
@@ -17,45 +16,30 @@ module.exports = (req, res) => {
     return res.status(400).json({ error: 'Invalid YouTube URL' });
   }
 
-  const args = [
-    '-f', 'bestaudio[ext=m4a]/bestaudio',
-    '--no-playlist',
-    '--no-warnings',
-    '--no-check-certificate',
-    '-o', '-',
-    url,
-  ];
-
-  const ytdlp = spawn(YOUTUBE_DL_PATH, args, {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  res.setHeader('Content-Type', 'audio/mp4');
+  res.setHeader('Content-Type', 'audio/webm');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  ytdlp.stdout.pipe(res);
+  let stream;
+  try {
+    stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
+  } catch (err) {
+    console.error('ytdl init error:', err);
+    return res.status(500).json({ error: 'Failed to initialise stream.' });
+  }
 
-  ytdlp.stderr.on('data', (chunk) => {
-    console.error('yt-dlp stderr:', chunk.toString());
-  });
-
-  ytdlp.on('error', (error) => {
-    console.error('yt-dlp spawn error:', error);
+  stream.on('error', (err) => {
+    console.error('ytdl stream error:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Unable to download audio from YouTube.' });
+      res.status(500).json({ error: 'Failed to stream audio.' });
     } else {
       res.destroy();
     }
   });
 
-  ytdlp.on('close', (code) => {
-    if (code !== 0 && !res.headersSent && !res.writableEnded) {
-      res.status(500).json({ error: 'yt-dlp failed to stream audio.' });
-    }
-  });
+  stream.pipe(res);
 
   res.on('close', () => {
-    if (!ytdlp.killed) ytdlp.kill('SIGKILL');
+    stream.destroy();
   });
 };
