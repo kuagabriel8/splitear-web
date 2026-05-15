@@ -31,6 +31,7 @@ module.exports = (req, res) => {
   stream.on('error', (err) => {
     console.error('ytdl stream error:', err);
     if (!res.headersSent) {
+      res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ error: 'Failed to stream audio.', detail: err.message });
     } else {
       res.destroy();
