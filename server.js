@@ -1,8 +1,16 @@
 const express = require('express');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const cors = require('cors');
 const { YOUTUBE_DL_PATH } = require('yt-dlp-exec/src/constants');
+
+const COOKIES_PATH = path.join(os.tmpdir(), 'yt-cookies.txt');
+if (process.env.YOUTUBE_COOKIES) {
+  fs.writeFileSync(COOKIES_PATH, process.env.YOUTUBE_COOKIES);
+  console.log('YouTube cookies loaded from environment.');
+}
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -41,6 +49,7 @@ app.get('/api/audio', (req, res) => {
     '--no-warnings',
     '--no-check-certificate',
     '--extractor-args', 'youtube:player_client=android',
+    ...(fs.existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : []),
     '-o', '-',
     url,
   ];
