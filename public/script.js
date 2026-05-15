@@ -75,14 +75,16 @@ function isSameLinks(leftUrl, rightUrl) {
 function restartAudio() {
   try {
     if (leftPlayer) {
+      leftPlayer.pauseVideo();
       leftPlayer.seekTo(0);
     }
     if (rightPlayer) {
+      rightPlayer.pauseVideo();
       rightPlayer.seekTo(0);
     }
     isPlaying = false;
     playButton.textContent = 'Play';
-    setStatus('Audio restarted.', 'success');
+    setStatus('Tracks reset. Click Play to begin.', 'info');
   } catch (error) {
     console.error('Error restarting audio:', error);
     setStatus('Error restarting audio.', 'error');
@@ -214,7 +216,6 @@ async function loadTracks() {
 
   updatePreviewThumbnails();
 
-  // If same links were already loaded for left and right tracks, just restart audio instead of reloading
   if (isSameLinks(leftUrl, rightUrl) && leftPlayer && rightPlayer) {
     restartAudio();
     return;
@@ -244,8 +245,6 @@ async function loadTracks() {
 
     leftPlayer = leftTrack;
     rightPlayer = rightTrack;
-
-    // Store the loaded URLs for future comparison
     previousLeftUrl = leftUrl;
     previousRightUrl = rightUrl;
 
