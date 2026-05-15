@@ -44,6 +44,28 @@ app.get('/api/test', (req, res) => {
   p.on('error', err => res.status(500).json({ error: err.message }));
 });
 
+app.get('/api/formats', (req, res) => {
+  const { url } = req.query;
+  if (!url || !isYouTubeUrl(url)) return res.status(400).json({ error: 'Invalid URL' });
+
+  const args = [
+    '--list-formats',
+    '--no-warnings',
+    '--extractor-args', 'youtube:player_client=web,android,ios',
+    ...(fs.existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : []),
+    url,
+  ];
+
+  const p = spawn(YTDLP, args);
+  let out = '';
+  p.stdout.on('data', d => out += d);
+  p.stderr.on('data', d => out += d);
+  p.on('close', () => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(out);
+  });
+});
+
 app.get('/api/audio', (req, res) => {
   const { url } = req.query;
   if (!url || !isYouTubeUrl(url)) {
