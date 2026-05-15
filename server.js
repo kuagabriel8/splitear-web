@@ -51,7 +51,7 @@ app.get('/api/audio', (req, res) => {
   }
 
   const args = [
-    '-f', 'bestaudio',
+    '-f', 'bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio',
     '--no-playlist',
     '--no-warnings',
     '--extractor-args', 'youtube:player_client=tv_simply,web_safari,android',
@@ -62,7 +62,7 @@ app.get('/api/audio', (req, res) => {
 
   const ytdlp = spawn(YTDLP, args);
 
-  res.setHeader('Content-Type', 'audio/webm');
+  res.setHeader('Content-Type', 'audio/mp4');
   res.setHeader('Cache-Control', 'no-cache');
 
   let stderrBuf = '';
