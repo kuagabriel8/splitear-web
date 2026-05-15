@@ -3,11 +3,14 @@
   "version": "1.0.0",
   "description": "Web app to play two YouTube audio tracks separately in left and right ears.",
   "scripts": {
-    "start": "npx serve public",
-    "dev": "npx serve public",
+    "start": "node server.js",
+    "dev": "node server.js",
     "build": "echo 'Static files ready'"
   },
   "dependencies": {
-    "serve": "^14.2.1"
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "serve": "^14.2.1",
+    "yt-dlp-exec": "^1.0.2"
   }
 }
