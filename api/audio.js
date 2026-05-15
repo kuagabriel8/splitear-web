@@ -1,4 +1,5 @@
 const https = require('https');
+const http = require('http');
 
 function extractVideoId(url) {
   try {
@@ -8,17 +9,73 @@ function extractVideoId(url) {
   } catch { return null; }
 }
 
-function fetchJson(url) {
+function fetchJson(url, redirects = 5) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+    if (redirects === 0) return reject(new Error('Too many redirects'));
+    const lib = url.startsWith('https') ? https : http;
+    const req = lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        return resolve(fetchJson(res.headers.location, redirects - 1));
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${res.statusCode} from ${url}`));
+      }
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try { resolve(JSON.parse(data)); }
-        catch { reject(new Error('Invalid JSON from Piped')); }
+        catch { reject(new Error(`Bad JSON from ${url}: ${data.slice(0, 100)}`)); }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
   });
+}
+
+function streamAudio(url, res, redirects = 5) {
+  if (redirects === 0) return res.status(500).json({ error: 'Too many redirects on audio URL' });
+  const lib = url.startsWith('https') ? https : http;
+  lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Range': 'bytes=0-' } }, (audioRes) => {
+    if (audioRes.statusCode >= 300 && audioRes.statusCode < 400 && audioRes.headers.location) {
+      audioRes.resume();
+      return streamAudio(audioRes.headers.location, res, redirects - 1);
+    }
+    if (audioRes.statusCode !== 200 && audioRes.statusCode !== 206) {
+      audioRes.resume();
+      return res.status(500).json({ error: `Audio upstream returned ${audioRes.statusCode}` });
+    }
+    res.setHeader('Content-Type', audioRes.headers['content-type'] || 'audio/webm');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (audioRes.headers['content-length']) {
+      res.setHeader('Content-Length', audioRes.headers['content-length']);
+    }
+    audioRes.pipe(res);
+    res.on('close', () => audioRes.destroy());
+  }).on('error', (err) => {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  });
+}
+
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://piped-api.garudalinux.org',
+  'https://api.piped.projectsegfau.lt',
+];
+
+async function getAudioStreams(videoId) {
+  const errors = [];
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const data = await fetchJson(`${instance}/streams/${videoId}`);
+      if (data.audioStreams?.length) return data.audioStreams;
+      errors.push(`${instance}: no audio streams`);
+    } catch (err) {
+      errors.push(`${instance}: ${err.message}`);
+    }
+  }
+  throw new Error('All Piped instances failed: ' + errors.join(' | '));
 }
 
 module.exports = async (req, res) => {
@@ -27,26 +84,11 @@ module.exports = async (req, res) => {
   if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
 
   try {
-    const data = await fetchJson(`https://pipedapi.kavin.rocks/streams/${videoId}`);
-    if (!data.audioStreams?.length) throw new Error('No audio streams found');
-
-    const best = data.audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-
-    https.get(best.url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (audioRes) => {
-      res.setHeader('Content-Type', best.mimeType || 'audio/webm');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      if (audioRes.headers['content-length']) {
-        res.setHeader('Content-Length', audioRes.headers['content-length']);
-      }
-      audioRes.pipe(res);
-      res.on('close', () => audioRes.destroy());
-    }).on('error', (err) => {
-      if (!res.headersSent) res.status(500).json({ error: err.message });
-    });
-
+    const audioStreams = await getAudioStreams(videoId);
+    const best = audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+    streamAudio(best.url, res);
   } catch (err) {
-    console.error('Piped error:', err.message);
+    console.error('Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
