@@ -9,26 +9,32 @@ function extractVideoId(url) {
   } catch { return null; }
 }
 
-function fetchJson(url, redirects = 5) {
+function postJson(url, body) {
   return new Promise((resolve, reject) => {
-    if (redirects === 0) return reject(new Error('Too many redirects'));
-    const lib = url.startsWith('https') ? https : http;
-    lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        return resolve(fetchJson(res.headers.location, redirects - 1));
-      }
-      if (res.statusCode !== 200) {
-        res.resume();
-        return reject(new Error(`HTTP ${res.statusCode}`));
-      }
+    const payload = JSON.stringify(body);
+    const parsed = new URL(url);
+    const options = {
+      hostname: parsed.hostname,
+      path: parsed.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'User-Agent': 'Mozilla/5.0',
+      },
+    };
+    const req = https.request(options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { reject(new Error(`Bad JSON: ${data.slice(0, 120)}`)); }
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { reject(new Error(`Bad JSON from Cobalt: ${data.slice(0, 200)}`)); }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
   });
 }
 
@@ -42,7 +48,7 @@ function streamUrl(url, res, redirects = 5) {
     }
     if (audioRes.statusCode !== 200 && audioRes.statusCode !== 206) {
       audioRes.resume();
-      return res.status(500).json({ error: `Upstream ${audioRes.statusCode}` });
+      return res.status(500).json({ error: `Upstream returned ${audioRes.statusCode}` });
     }
     res.setHeader('Content-Type', audioRes.headers['content-type'] || 'audio/webm');
     res.setHeader('Cache-Control', 'no-cache');
@@ -57,42 +63,35 @@ function streamUrl(url, res, redirects = 5) {
   });
 }
 
-const INVIDIOUS_INSTANCES = [
-  'https://yewtu.be',
-  'https://invidious.privacydev.net',
-  'https://inv.tux.pizza',
-  'https://invidious.io',
-];
-
-async function getAudioUrl(videoId) {
-  const errors = [];
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      const data = await fetchJson(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`);
-      const audioFormats = (data.adaptiveFormats || []).filter(f => f.type?.startsWith('audio/'));
-      if (!audioFormats.length) { errors.push(`${instance}: no audio formats`); continue; }
-      const best = audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-      return { url: best.url, mimeType: best.type };
-    } catch (err) {
-      errors.push(`${instance}: ${err.message}`);
-    }
-  }
-  throw new Error(errors.join(' | '));
-}
-
 module.exports = async (req, res) => {
   const { url } = req.query;
-  const videoId = extractVideoId(url);
-  if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
+  if (!url) return res.status(400).json({ error: 'Missing url parameter' });
 
   try {
-    const { url: audioUrl, mimeType } = await getAudioUrl(videoId);
-    res.setHeader('Content-Type', mimeType || 'audio/webm');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    streamUrl(audioUrl, res);
+    const result = await postJson('https://api.cobalt.tools/', {
+      url,
+      downloadMode: 'audio',
+      audioFormat: 'best',
+    });
+
+    const { status, body } = result;
+
+    if (status !== 200) {
+      return res.status(500).json({ error: `Cobalt error: ${body.error?.code || JSON.stringify(body)}` });
+    }
+
+    if (body.status === 'error') {
+      return res.status(500).json({ error: `Cobalt: ${body.error?.code || 'unknown error'}` });
+    }
+
+    if (body.status === 'tunnel' || body.status === 'redirect' || body.status === 'stream') {
+      return streamUrl(body.url, res);
+    }
+
+    return res.status(500).json({ error: `Unexpected Cobalt status: ${body.status}`, detail: body });
+
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('Cobalt error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
