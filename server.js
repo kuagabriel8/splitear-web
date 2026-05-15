@@ -31,6 +31,7 @@ app.get('/api/audio', (req, res) => {
     '--no-playlist',
     '--no-warnings',
     '--no-check-certificate',
+    '--extractor-args', 'youtube:player_client=android',
     '-o', '-',
     url,
   ];
@@ -42,16 +43,18 @@ app.get('/api/audio', (req, res) => {
   res.setHeader('Content-Type', 'audio/mp4');
   res.setHeader('Cache-Control', 'no-cache');
 
-  ytdlp.stdout.pipe(res);
-
+  let stderrBuf = '';
   ytdlp.stderr.on('data', (chunk) => {
-    console.error('yt-dlp stderr:', chunk.toString());
+    stderrBuf += chunk.toString();
+    console.error('yt-dlp:', chunk.toString().trim());
   });
+
+  ytdlp.stdout.pipe(res);
 
   ytdlp.on('error', (error) => {
     console.error('yt-dlp spawn error:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Unable to download audio from YouTube.' });
+      res.status(500).json({ error: error.message });
     } else {
       res.destroy();
     }
@@ -59,7 +62,7 @@ app.get('/api/audio', (req, res) => {
 
   ytdlp.on('close', (code) => {
     if (code !== 0 && !res.headersSent && !res.writableEnded) {
-      res.status(500).json({ error: 'yt-dlp failed to stream audio.' });
+      res.status(500).json({ error: stderrBuf.slice(-300) || 'yt-dlp failed' });
     }
   });
 
