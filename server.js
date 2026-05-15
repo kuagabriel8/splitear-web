@@ -51,7 +51,7 @@ app.get('/api/formats', (req, res) => {
   const args = [
     '--list-formats',
     '--no-warnings',
-    '--extractor-args', 'youtube:player_client=web,android,ios',
+    '--extractor-args', 'youtube:player_client=android,ios,web',
     ...(fs.existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : []),
     url,
   ];
@@ -76,7 +76,7 @@ app.get('/api/audio', (req, res) => {
     '-f', 'bestaudio/best',
     '--no-playlist',
     '--no-warnings',
-    '--extractor-args', 'youtube:player_client=web,android,ios',
+    '--extractor-args', 'youtube:player_client=android,ios,web',
     ...(fs.existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : []),
     '-o', '-',
     url,
