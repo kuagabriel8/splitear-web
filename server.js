@@ -1,7 +1,8 @@
 const express = require('express');
 const path = require('path');
+const { spawn } = require('child_process');
 const cors = require('cors');
-const ytdl = require('@distube/ytdl-core');
+const { YOUTUBE_DL_PATH } = require('yt-dlp-exec/src/constants');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -25,38 +26,48 @@ app.get('/api/audio', (req, res) => {
     return res.status(400).json({ error: 'Invalid YouTube URL' });
   }
 
-  res.setHeader('Content-Type', 'audio/webm');
+  const args = [
+    '-f', 'bestaudio[ext=m4a]/bestaudio',
+    '--no-playlist',
+    '--no-warnings',
+    '--no-check-certificate',
+    '-o', '-',
+    url,
+  ];
+
+  const ytdlp = spawn(YOUTUBE_DL_PATH, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  res.setHeader('Content-Type', 'audio/mp4');
   res.setHeader('Cache-Control', 'no-cache');
 
-  let stream;
-  try {
-    stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
-  } catch (err) {
-    console.error('ytdl init error:', err);
-    return res.status(500).json({ error: 'Failed to initialise stream.' });
-  }
+  ytdlp.stdout.pipe(res);
 
-  stream.on('error', (err) => {
-    console.error('ytdl stream error:', err);
+  ytdlp.stderr.on('data', (chunk) => {
+    console.error('yt-dlp stderr:', chunk.toString());
+  });
+
+  ytdlp.on('error', (error) => {
+    console.error('yt-dlp spawn error:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to stream audio.' });
+      res.status(500).json({ error: 'Unable to download audio from YouTube.' });
     } else {
       res.destroy();
     }
   });
 
-  stream.pipe(res);
+  ytdlp.on('close', (code) => {
+    if (code !== 0 && !res.headersSent && !res.writableEnded) {
+      res.status(500).json({ error: 'yt-dlp failed to stream audio.' });
+    }
+  });
 
   res.on('close', () => {
-    stream.destroy();
+    if (!ytdlp.killed) ytdlp.kill('SIGKILL');
   });
 });
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
-  const { spawn } = require('child_process');
-  spawn('cmd', ['/c', 'start', `http://localhost:${port}`], {
-    detached: true,
-    stdio: 'ignore'
-  });
 });
