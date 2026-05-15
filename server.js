@@ -10,6 +10,15 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/api/test', (req, res) => {
+  const ytdlp = spawn(YOUTUBE_DL_PATH, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  ytdlp.stdout.on('data', d => out += d);
+  ytdlp.stderr.on('data', d => out += d);
+  ytdlp.on('close', code => res.json({ ok: code === 0, version: out.trim(), path: YOUTUBE_DL_PATH }));
+  ytdlp.on('error', err => res.status(500).json({ error: err.message }));
+});
+
 function isYouTubeUrl(value) {
   try {
     const parsed = new URL(value);
