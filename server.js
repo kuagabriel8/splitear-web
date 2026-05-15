@@ -1,18 +1,18 @@
 const express = require('express');
 const path = require('path');
-const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const { spawn } = require('child_process');
 const cors = require('cors');
-const { YOUTUBE_DL_PATH } = require('yt-dlp-exec/src/constants');
 
+const YTDLP = process.env.YTDLP_PATH || '/usr/local/bin/yt-dlp';
 const COOKIES_PATH = path.join(os.tmpdir(), 'yt-cookies.txt');
-console.log('YOUTUBE_COOKIES set:', !!process.env.YOUTUBE_COOKIES, 'length:', (process.env.YOUTUBE_COOKIES || '').length);
+
 if (process.env.YOUTUBE_COOKIES) {
   fs.writeFileSync(COOKIES_PATH, process.env.YOUTUBE_COOKIES);
-  console.log('YouTube cookies written to', COOKIES_PATH);
+  console.log(`Cookies loaded (${process.env.YOUTUBE_COOKIES.length} chars)`);
 } else {
-  console.log('No YOUTUBE_COOKIES env var found — yt-dlp will run without auth.');
+  console.log('No YOUTUBE_COOKIES env var — yt-dlp will run unauthenticated.');
 }
 
 const app = express();
@@ -21,24 +21,28 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/test', (req, res) => {
-  const ytdlp = spawn(YOUTUBE_DL_PATH, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
-  let out = '';
-  ytdlp.stdout.on('data', d => out += d);
-  ytdlp.stderr.on('data', d => out += d);
-  ytdlp.on('close', code => res.json({ ok: code === 0, version: out.trim(), path: YOUTUBE_DL_PATH }));
-  ytdlp.on('error', err => res.status(500).json({ error: err.message }));
-});
-
 function isYouTubeUrl(value) {
   try {
-    const parsed = new URL(value);
-    const host = parsed.hostname.toLowerCase();
+    const host = new URL(value).hostname.toLowerCase();
     return host.includes('youtube.com') || host.includes('youtu.be');
   } catch {
     return false;
   }
 }
+
+app.get('/api/test', (req, res) => {
+  const p = spawn(YTDLP, ['--version']);
+  let out = '';
+  p.stdout.on('data', d => out += d);
+  p.stderr.on('data', d => out += d);
+  p.on('close', code => res.json({
+    ok: code === 0,
+    version: out.trim(),
+    path: YTDLP,
+    cookies: fs.existsSync(COOKIES_PATH),
+  }));
+  p.on('error', err => res.status(500).json({ error: err.message }));
+});
 
 app.get('/api/audio', (req, res) => {
   const { url } = req.query;
@@ -47,43 +51,36 @@ app.get('/api/audio', (req, res) => {
   }
 
   const args = [
-    '-f', 'bestaudio[ext=m4a]/bestaudio',
+    '-f', 'bestaudio',
     '--no-playlist',
     '--no-warnings',
-    '--no-check-certificate',
-    '--extractor-args', 'youtube:player_client=android',
+    '--extractor-args', 'youtube:player_client=tv_simply,web_safari,android',
     ...(fs.existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : []),
     '-o', '-',
     url,
   ];
 
-  const ytdlp = spawn(YOUTUBE_DL_PATH, args, {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const ytdlp = spawn(YTDLP, args);
 
-  res.setHeader('Content-Type', 'audio/mp4');
+  res.setHeader('Content-Type', 'audio/webm');
   res.setHeader('Cache-Control', 'no-cache');
 
   let stderrBuf = '';
   ytdlp.stderr.on('data', (chunk) => {
     stderrBuf += chunk.toString();
-    console.error('yt-dlp:', chunk.toString().trim());
+    process.stderr.write(`[yt-dlp] ${chunk}`);
   });
 
   ytdlp.stdout.pipe(res);
 
-  ytdlp.on('error', (error) => {
-    console.error('yt-dlp spawn error:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: error.message });
-    } else {
-      res.destroy();
-    }
+  ytdlp.on('error', (err) => {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+    else res.destroy();
   });
 
   ytdlp.on('close', (code) => {
-    if (code !== 0 && !res.headersSent && !res.writableEnded) {
-      res.status(500).json({ error: stderrBuf.slice(-300) || 'yt-dlp failed' });
+    if (code !== 0 && !res.headersSent) {
+      res.status(500).json({ error: stderrBuf.slice(-500) || `yt-dlp exited ${code}` });
     }
   });
 
@@ -93,5 +90,5 @@ app.get('/api/audio', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server listening on port ${port}`);
 });

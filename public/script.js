@@ -149,7 +149,7 @@ async function createTrack(url, panValue) {
         cleanup();
         reject(new Error('Audio load timed out.'));
       }
-    }, 60000);
+    }, 600000);
 
     const onCanPlay = async () => {
       if (isResolved) return;
