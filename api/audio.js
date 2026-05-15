@@ -25,13 +25,13 @@ module.exports = (req, res) => {
     stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
   } catch (err) {
     console.error('ytdl init error:', err);
-    return res.status(500).json({ error: 'Failed to initialise stream.' });
+    return res.status(500).json({ error: 'Failed to initialise stream.', detail: err.message });
   }
 
   stream.on('error', (err) => {
     console.error('ytdl stream error:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to stream audio.' });
+      res.status(500).json({ error: 'Failed to stream audio.', detail: err.message });
     } else {
       res.destroy();
     }
