@@ -87,16 +87,27 @@ app.get('/api/audio', (req, res) => {
   ytdlp.stdout.pipe(ffmpeg.stdin);
   ffmpeg.stdout.pipe(res);
 
-  ytdlp.on('error', (err) => {
-    if (!res.headersSent) res.status(500).json({ error: err.message });
-    else res.destroy();
-  });
+  function sendError(message) {
+    if (res.headersSent) { res.destroy(); return; }
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json({ error: message });
+  }
+
+  ytdlp.on('error', (err) => sendError(err.message));
 
   ytdlp.on('close', (code) => {
     if (code !== 0 && !res.headersSent) {
-      res.status(500).json({ error: stderrBuf.slice(-500) || `yt-dlp exited ${code}` });
+      sendError(stderrBuf.slice(-500) || `yt-dlp exited ${code}`);
     }
     try { ffmpeg.stdin.end(); } catch {}
+  });
+
+  ffmpeg.on('error', (err) => sendError(`ffmpeg: ${err.message}`));
+
+  ffmpeg.on('close', (code) => {
+    if (code !== 0 && !res.headersSent) {
+      sendError(`ffmpeg exited ${code}`);
+    }
   });
 
   res.on('close', () => {
