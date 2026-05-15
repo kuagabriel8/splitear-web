@@ -4,10 +4,6 @@ const loadButton = document.querySelector('#loadButton');
 const playButton = document.querySelector('#playButton');
 const clearButton = document.querySelector('#clearButton');
 const toastContainer = document.querySelector('#toastContainer');
-const previewLeftThumb = document.querySelector('#previewLeftThumb');
-const previewRightThumb = document.querySelector('#previewRightThumb');
-const previewLeftOverlay = document.querySelector('#previewLeftOverlay');
-const previewRightOverlay = document.querySelector('#previewRightOverlay');
 
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let leftAudio = null;
@@ -25,52 +21,11 @@ function showToast(message, type = 'info') {
   toast.className = `toast toast--${type}`;
   toast.textContent = message;
   toastContainer.appendChild(toast);
-
-  setTimeout(() => {
-    toast.remove();
-  }, 3600);
+  setTimeout(() => toast.remove(), 3600);
 }
 
 function setStatus(message, type = 'info') {
   showToast(message, type);
-}
-
-function extractYouTubeId(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.includes('youtu.be')) {
-      return parsed.pathname.slice(1);
-    }
-    return parsed.searchParams.get('v');
-  } catch {
-    return null;
-  }
-}
-
-function getThumbnailUrl(url) {
-  const id = extractYouTubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '';
-}
-
-function updatePreviewThumbnails() {
-  const leftThumb = getThumbnailUrl(leftUrlInput.value.trim());
-  const rightThumb = getThumbnailUrl(rightUrlInput.value.trim());
-
-  if (leftThumb) {
-    previewLeftThumb.src = leftThumb;
-    previewLeftOverlay.style.display = 'block';
-  } else {
-    previewLeftThumb.src = '';
-    previewLeftOverlay.style.display = 'none';
-  }
-
-  if (rightThumb) {
-    previewRightThumb.src = rightThumb;
-    previewRightOverlay.style.display = 'block';
-  } else {
-    previewRightThumb.src = '';
-    previewRightOverlay.style.display = 'none';
-  }
 }
 
 function isSameLinks(leftUrl, rightUrl) {
@@ -79,14 +34,8 @@ function isSameLinks(leftUrl, rightUrl) {
 
 function restartAudio() {
   try {
-    if (leftAudio) {
-      leftAudio.pause();
-      leftAudio.currentTime = 0;
-    }
-    if (rightAudio) {
-      rightAudio.pause();
-      rightAudio.currentTime = 0;
-    }
+    if (leftAudio) { leftAudio.pause(); leftAudio.currentTime = 0; }
+    if (rightAudio) { rightAudio.pause(); rightAudio.currentTime = 0; }
     isPlaying = false;
     playButton.textContent = 'Play';
     setStatus('Tracks reset. Click Play to begin.', 'info');
@@ -131,8 +80,7 @@ function clearTracks() {
   rightUrlInput.value = '';
   previousLeftUrl = null;
   previousRightUrl = null;
-  updatePreviewThumbnails();
-  setStatus('Links cleared. Enter two new YouTube links.', 'info');
+  setStatus('Links cleared. Enter two new audio URLs.', 'info');
 }
 
 async function createTrack(url, panValue) {
@@ -149,12 +97,11 @@ async function createTrack(url, panValue) {
         cleanup();
         reject(new Error('Audio load timed out.'));
       }
-    }, 600000);
+    }, 60000);
 
-    const onCanPlay = async () => {
+    const onCanPlay = () => {
       if (isResolved) return;
       cleanup();
-
       try {
         const source = audioContext.createMediaElementSource(audio);
         const panner = audioContext.createStereoPanner();
@@ -193,16 +140,14 @@ async function loadTracks() {
   const rightUrl = rightUrlInput.value.trim();
 
   if (!leftUrl || !rightUrl) {
-    setStatus('Please enter both YouTube links.', 'error');
+    setStatus('Please enter both audio URLs.', 'error');
     return;
   }
 
   if (leftUrl === rightUrl) {
-    setStatus('Use two different YouTube links.', 'error');
+    setStatus('Use two different audio URLs.', 'error');
     return;
   }
-
-  updatePreviewThumbnails();
 
   if (isSameLinks(leftUrl, rightUrl) && leftAudio && rightAudio) {
     restartAudio();
@@ -210,23 +155,21 @@ async function loadTracks() {
   }
 
   cleanupTracks();
-
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 300));
 
   setStatus('Loading tracks...', 'info');
   loadButton.disabled = true;
   playButton.disabled = true;
 
   try {
-    const leftPromise = createTrack(`/api/audio?url=${encodeURIComponent(leftUrl)}`, -1);
-    const rightPromise = createTrack(`/api/audio?url=${encodeURIComponent(rightUrl)}`, 1);
-
-    const [leftTrack, rightTrack] = await Promise.all([leftPromise, rightPromise]);
+    const [leftTrack, rightTrack] = await Promise.all([
+      createTrack(leftUrl, -1),
+      createTrack(rightUrl, 1),
+    ]);
 
     leftAudio = leftTrack.audio;
     leftSource = leftTrack.source;
     leftPanner = leftTrack.panner;
-
     rightAudio = rightTrack.audio;
     rightSource = rightTrack.source;
     rightPanner = rightTrack.panner;
@@ -239,7 +182,7 @@ async function loadTracks() {
   } catch (error) {
     console.error(error);
     cleanupTracks();
-    setStatus('Unable to load one or both tracks. Check the URLs and try again.', 'error');
+    setStatus('Unable to load one or both tracks. Check that the URLs are direct audio files with CORS enabled.', 'error');
   } finally {
     loadButton.disabled = false;
   }
@@ -272,5 +215,3 @@ async function togglePlay() {
 loadButton.addEventListener('click', loadTracks);
 playButton.addEventListener('click', togglePlay);
 clearButton.addEventListener('click', clearTracks);
-leftUrlInput.addEventListener('input', updatePreviewThumbnails);
-rightUrlInput.addEventListener('input', updatePreviewThumbnails);

@@ -1,12 +1,12 @@
 {
   "name": "splitear",
   "version": "1.0.0",
-  "description": "Web app to play two YouTube audio tracks separately in left and right ears.",
+  "description": "Web app that pans two audio tracks fully left and fully right for headphone listening.",
   "scripts": {
-    "start": "node server.js"
+    "start": "npx serve public",
+    "dev": "npx serve public"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "serve": "^14.2.1"
   }
 }

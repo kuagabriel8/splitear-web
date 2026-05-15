@@ -2,22 +2,12 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/audio.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "public" }
     }
   ],
   "routes": [
-    {
-      "src": "/api/audio",
-      "dest": "/api/audio.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }

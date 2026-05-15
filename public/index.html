@@ -3,31 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Split Ear YouTube Player</title>
+  <title>Split Ear Audio Player</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
   <div class="container">
-    <h1>Split Ear YouTube Player</h1>
-    <p>Use headphones or left right speakers</p>
+    <h1>Split Ear Audio Player</h1>
+    <p>Paste two direct audio URLs (mp3, ogg, wav, m4a). Use headphones for the stereo effect.</p>
 
-    <div class="preview-shell">
-      <div class="preview-frame" aria-label="Visual thumbnail preview">
-        <div class="preview-overlay preview-overlay--right" id="previewRightOverlay">
-          <img id="previewRightThumb" alt="Right ear thumbnail" src="" />
-        </div>
-        <div class="preview-overlay preview-overlay--left" id="previewLeftOverlay">
-          <img id="previewLeftThumb" alt="Left ear thumbnail" src="" />
-        </div>
-      </div>
-    </div>
+    <label for="leftUrl">Left ear audio URL:</label>
+    <input id="leftUrl" type="url" placeholder="https://example.com/track-left.mp3" />
 
-    <label for="leftUrl">Left ear:</label>
-    <input id="leftUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
-
-    <label for="rightUrl">Right ear:</label>
-    <input id="rightUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+    <label for="rightUrl">Right ear audio URL:</label>
+    <input id="rightUrl" type="url" placeholder="https://example.com/track-right.mp3" />
 
     <div class="buttons">
       <button id="loadButton">Load Tracks</button>
@@ -36,9 +24,6 @@
     </div>
 
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
-  
-
-  
   </div>
 
   <script src="script.js"></script>
