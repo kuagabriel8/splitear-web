@@ -51,7 +51,7 @@ app.get('/api/audio', (req, res) => {
   }
 
   const ytdlpArgs = [
-    '-f', 'bestaudio',
+    '-f', 'bestaudio/best',
     '--no-playlist',
     '--no-warnings',
     '--extractor-args', 'youtube:player_client=tv_simply,web_safari,android',
