@@ -50,8 +50,8 @@ app.get('/api/audio', (req, res) => {
     return res.status(400).json({ error: 'Invalid YouTube URL' });
   }
 
-  const args = [
-    '-f', 'bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio',
+  const ytdlpArgs = [
+    '-f', 'bestaudio',
     '--no-playlist',
     '--no-warnings',
     '--extractor-args', 'youtube:player_client=tv_simply,web_safari,android',
@@ -60,9 +60,19 @@ app.get('/api/audio', (req, res) => {
     url,
   ];
 
-  const ytdlp = spawn(YTDLP, args);
+  const ytdlp = spawn(YTDLP, ytdlpArgs);
 
-  res.setHeader('Content-Type', 'audio/mp4');
+  const ffmpeg = spawn('ffmpeg', [
+    '-loglevel', 'error',
+    '-i', 'pipe:0',
+    '-vn',
+    '-acodec', 'libmp3lame',
+    '-b:a', '128k',
+    '-f', 'mp3',
+    'pipe:1',
+  ]);
+
+  res.setHeader('Content-Type', 'audio/mpeg');
   res.setHeader('Cache-Control', 'no-cache');
 
   let stderrBuf = '';
@@ -70,8 +80,12 @@ app.get('/api/audio', (req, res) => {
     stderrBuf += chunk.toString();
     process.stderr.write(`[yt-dlp] ${chunk}`);
   });
+  ffmpeg.stderr.on('data', (chunk) => {
+    process.stderr.write(`[ffmpeg] ${chunk}`);
+  });
 
-  ytdlp.stdout.pipe(res);
+  ytdlp.stdout.pipe(ffmpeg.stdin);
+  ffmpeg.stdout.pipe(res);
 
   ytdlp.on('error', (err) => {
     if (!res.headersSent) res.status(500).json({ error: err.message });
@@ -82,10 +96,12 @@ app.get('/api/audio', (req, res) => {
     if (code !== 0 && !res.headersSent) {
       res.status(500).json({ error: stderrBuf.slice(-500) || `yt-dlp exited ${code}` });
     }
+    try { ffmpeg.stdin.end(); } catch {}
   });
 
   res.on('close', () => {
     if (!ytdlp.killed) ytdlp.kill('SIGKILL');
+    if (!ffmpeg.killed) ffmpeg.kill('SIGKILL');
   });
 });
 
