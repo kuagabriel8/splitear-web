@@ -7,9 +7,12 @@ const cors = require('cors');
 const { YOUTUBE_DL_PATH } = require('yt-dlp-exec/src/constants');
 
 const COOKIES_PATH = path.join(os.tmpdir(), 'yt-cookies.txt');
+console.log('YOUTUBE_COOKIES set:', !!process.env.YOUTUBE_COOKIES, 'length:', (process.env.YOUTUBE_COOKIES || '').length);
 if (process.env.YOUTUBE_COOKIES) {
   fs.writeFileSync(COOKIES_PATH, process.env.YOUTUBE_COOKIES);
-  console.log('YouTube cookies loaded from environment.');
+  console.log('YouTube cookies written to', COOKIES_PATH);
+} else {
+  console.log('No YOUTUBE_COOKIES env var found — yt-dlp will run without auth.');
 }
 
 const app = express();
